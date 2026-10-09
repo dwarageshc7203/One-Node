@@ -163,6 +163,40 @@ class MainActivity : AppCompatActivity() {
     private fun setupNsd() {
         nsdManager = getSystemService(Context.NSD_SERVICE) as NsdManager
         startDiscovery()
+        startUdpDiscovery()
+    }
+
+    private var udpListenJob: kotlinx.coroutines.Job? = null
+
+    private fun startUdpDiscovery() {
+        udpListenJob = lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val socket = java.net.DatagramSocket(45677)
+                socket.soTimeout = 0 // block indefinitely
+                socket.broadcast = true
+                val buffer = ByteArray(1024)
+                val packet = java.net.DatagramPacket(buffer, buffer.size)
+
+                while (true) {
+                    socket.receive(packet)
+                    val data = String(packet.data, 0, packet.length)
+                    val json = Gson().fromJson(data, Map::class.java)
+                    if (json["service"] == "OneNode") {
+                        val ip = packet.address.hostAddress
+                        withContext(Dispatchers.Main) {
+                            if (etIp.text.isNullOrEmpty()) {
+                                etIp.setText(ip)
+                            }
+                            if (prefs.getString("pairing_secret", null) == null) {
+                                tvStatus.text = "✅ Desktop found at $ip"
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("OneNode", "UDP Discovery failed: ${e.message}")
+            }
+        }
     }
 
     private fun startDiscovery() {
@@ -190,6 +224,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         stopDiscovery()
+        udpListenJob?.cancel()
     }
 
     private fun checkPermissions() {
