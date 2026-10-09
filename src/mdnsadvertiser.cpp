@@ -11,7 +11,7 @@
 #include <avahi-common/simple-watch.h>
 
 MdnsAdvertiser::MdnsAdvertiser(QObject *parent)
-    : QObject(parent), stopRequested(false), simplePoll(nullptr), client(nullptr), group(nullptr), serviceName(QStringLiteral("OneNode"))
+    : DiscoveryBackend(parent), stopRequested(false), simplePoll(nullptr), client(nullptr), group(nullptr), serviceName(QStringLiteral("OneNode"))
 {
 }
 

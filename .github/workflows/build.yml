@@ -38,8 +38,8 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.5.0'
-        arch: 'win64_msvc2019_64'
+        version: '6.8.0'
+        arch: 'win64_msvc2022_64'
     - name: Build C++ Desktop App
       run: |
         mkdir -p build
