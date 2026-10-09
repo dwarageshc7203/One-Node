@@ -122,7 +122,7 @@ void MainWindow::dropEvent(QDropEvent *event) {
         QString filePath = url.toLocalFile();
         if (!filePath.isEmpty()) {
             statusLabel->setText("📤  Sending " + QFileInfo(filePath).fileName());
-            fileTransfer->sendFile(filePath, peerIp, 45679, token);
+            fileTransfer->sendFile(filePath, "127.0.0.1", 45677, token);
         }
     }
 }
@@ -140,7 +140,7 @@ void MainWindow::sendFilePath(const QString &filePath) {
         "Sending: " + QFileInfo(filePath).fileName(),
         QSystemTrayIcon::Information, 2000);
     QString token = settings->value("pairing_secret").toString();
-    fileTransfer->sendFile(filePath, peerIp, 45679, token);
+    fileTransfer->sendFile(filePath, "127.0.0.1", 45677, token);
 }
 
 // ── Pairing ────────────────────────────────────────────────────────────────

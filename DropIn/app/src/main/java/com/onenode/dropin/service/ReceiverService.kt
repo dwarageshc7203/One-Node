@@ -92,8 +92,10 @@ class ReceiverService : Service() {
             val prefs = getSharedPreferences("OneNodePrefs", Context.MODE_PRIVATE)
             val secretString = prefs.getString("pairing_secret", "")
             val secret = android.util.Base64.decode(secretString, android.util.Base64.DEFAULT)
-            val myId = prefs.getString("server_device_id", "")!!.toByteArray()
-            val peerId = prefs.getString("device_id", "")!!.toByteArray()
+            // myId is Android's ID, which is stored as device_id
+            val myId = prefs.getString("device_id", "")!!.toByteArray()
+            // peerId is Desktop's ID, which is stored as server_device_id
+            val peerId = prefs.getString("server_device_id", "")!!.toByteArray()
 
             val serverNonce = ByteArray(32)
             java.security.SecureRandom().nextBytes(serverNonce)
