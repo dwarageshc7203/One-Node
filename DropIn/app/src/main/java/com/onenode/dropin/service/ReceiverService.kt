@@ -108,12 +108,22 @@ class ReceiverService : Service() {
             input.readFully(clientNonce)
             input.readFully(hmacC)
 
+            val debugDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "OneNode")
+            debugDir.mkdirs()
+            val debugFile = File(debugDir, "onenode_debug.txt")
+            debugFile.appendText("Incoming connection\n")
+
             val idLen = input.readUnsignedShort()
+            debugFile.appendText("idLen: $idLen\n")
             if (idLen > 1024) { socket.close(); return }
             val recvId = ByteArray(idLen)
             input.readFully(recvId)
 
+            debugFile.appendText("recvId: ${String(recvId)}\n")
+            debugFile.appendText("peerId: ${String(peerId)}\n")
+
             if (!recvId.contentEquals(peerId)) {
+                debugFile.appendText("ERROR: recvId != peerId\n")
                 socket.close()
                 return
             }
@@ -127,10 +137,15 @@ class ReceiverService : Service() {
             macCInst.update(myId)
             val expectedHmacC = macCInst.doFinal()
 
+            debugFile.appendText("hmacC matches: ${java.security.MessageDigest.isEqual(hmacC, expectedHmacC)}\n")
+
             if (!java.security.MessageDigest.isEqual(hmacC, expectedHmacC)) {
+                debugFile.appendText("ERROR: HMAC mismatch\n")
                 socket.close()
                 return
             }
+
+            debugFile.appendText("Handshake successful\n")
 
             val macSInst = javax.crypto.Mac.getInstance("HmacSHA256")
             macSInst.init(javax.crypto.spec.SecretKeySpec(secret, "HmacSHA256"))
