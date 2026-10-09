@@ -22,8 +22,19 @@ private slots:
     void onBytesWritten(qint64 bytes);
     void onError(QAbstractSocket::SocketError error);
     void processNext();
+    void onReadyRead();
+    void startSendingFile();
 
 private:
+    enum HandshakeState {
+        WaitServerGreeting,
+        WaitServerMac,
+        Completed
+    };
+    HandshakeState hState;
+    QByteArray hBuffer;
+    QByteArray clientNonce;
+    
     QTcpSocket *socket;
     QQueue<QString> fileQueue;
     QString     peerIp;

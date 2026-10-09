@@ -55,6 +55,7 @@ void PairingServer::onDataReceived() {
     QJsonObject obj = doc.object();
     QString receivedCode = obj["code"].toString();
     QString deviceName   = obj["device"].toString("Unknown device");
+    QString deviceId     = obj["device_id"].toString("");
 
     if (receivedCode != activeCode) {
         QJsonObject resp;
@@ -67,16 +68,25 @@ void PairingServer::onDataReceived() {
         return;
     }
 
-    QString token    = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    // Generate 32-byte secure random secret
+    QByteArray secretBytes(32, 0);
+    QRandomGenerator::system()->generate(reinterpret_cast<quint32*>(secretBytes.data()), secretBytes.size() / sizeof(quint32));
+    QString secretBase64 = secretBytes.toBase64();
+
+    // The desktop also needs its own device_id (will be passed or retrieved in MainWindow)
+    // For now we can generate a new one if not passed, but we should probably emit this
+    QString serverDeviceId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     QString clientIp = pendingClient->peerAddress().toString();
 
     QJsonObject resp;
     resp["status"] = "ok";
-    resp["token"]  = token;
+    resp["device_id"] = serverDeviceId;
+    resp["device_name"] = "Desktop";
+    resp["secret"] = secretBase64;
     pendingClient->write(QJsonDocument(resp).toJson(QJsonDocument::Compact) + "\n");
     pendingClient->flush();
 
-    emit devicePaired(deviceName, token, clientIp);
+    emit devicePaired(deviceName, deviceId, secretBase64, serverDeviceId, clientIp);
     stop();
 }
 

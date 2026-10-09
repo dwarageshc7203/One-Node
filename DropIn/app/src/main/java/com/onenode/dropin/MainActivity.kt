@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
                 if (etIp.text.isNullOrEmpty()) {
                     etIp.setText(discoveredIp)
                 }
-                if (prefs.getString("pairing_token", null) == null) {
+                if (prefs.getString("pairing_secret", null) == null) {
                     tvStatus.text = "✅ Desktop found at $discoveredIp"
                 }
             }
@@ -175,10 +175,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateUiState() {
-        val pairingToken = prefs.getString("pairing_token", null)
+        val secret = prefs.getString("pairing_secret", null)
         val deviceName = prefs.getString("device_name", "Desktop")
 
-        if (pairingToken != null) {
+        if (secret != null) {
             tvStatus.text = "Linked to $deviceName"
             btnPair.visibility = View.GONE
             btnUnlink.visibility = View.VISIBLE
@@ -229,9 +229,11 @@ class MainActivity : AppCompatActivity() {
                     val writer = socket.getOutputStream().bufferedWriter()
                     val reader = socket.getInputStream().bufferedReader()
 
+                    val deviceId = prefs.getString("device_id", "") ?: java.util.UUID.randomUUID().toString()
                     val request = mapOf(
                         "code" to code,
-                        "device" to Build.MODEL
+                        "device" to Build.MODEL,
+                        "device_id" to deviceId
                     )
                     writer.write(Gson().toJson(request))
                     writer.newLine()
@@ -247,9 +249,13 @@ class MainActivity : AppCompatActivity() {
 
             result.onSuccess { response ->
                 if (response["status"] == "ok") {
-                    val token = response["token"] as String
+                    val secret = response["secret"] as String
+                    val serverDeviceId = response["device_id"] as String
+                    val deviceId = java.util.UUID.randomUUID().toString()
                     prefs.edit()
-                        .putString("pairing_token", token)
+                        .putString("pairing_secret", secret)
+                        .putString("device_id", deviceId)
+                        .putString("server_device_id", serverDeviceId)
                         .putString("device_ip", ip)
                         .putString("device_name", "Desktop")
                         .apply()
@@ -319,22 +325,61 @@ class MainActivity : AppCompatActivity() {
                     // Get file size
                     val fileSize = getFileSize(uri)
 
-                    val socket = java.net.Socket(desktopIp, 45680)
-                    val output = socket.getOutputStream()
+                    val secretString = prefs.getString("pairing_secret", "")
+                    val secret = android.util.Base64.decode(secretString, android.util.Base64.DEFAULT)
+                    val myId = prefs.getString("device_id", "")!!.toByteArray()
+                    val peerId = prefs.getString("server_device_id", "")!!.toByteArray()
 
-                    val tokenBytes = token.toByteArray(Charsets.UTF_8)
-                    val tokenLen = tokenBytes.size
+                    val socket = java.net.Socket()
+                    socket.soTimeout = 5000 // Handshake timeout
+                    socket.connect(java.net.InetSocketAddress(desktopIp, 45680), 5000)
+                    val output = java.io.DataOutputStream(socket.getOutputStream())
+                    val input = java.io.DataInputStream(socket.getInputStream())
+
+                    // Handshake
+                    val version = input.readByte()
+                    if (version != 1.toByte()) throw Exception("Invalid version")
+                    val serverNonce = ByteArray(32)
+                    input.readFully(serverNonce)
+
+                    val clientNonce = ByteArray(32)
+                    java.security.SecureRandom().nextBytes(clientNonce)
+
+                    val macCInst = javax.crypto.Mac.getInstance("HmacSHA256")
+                    macCInst.init(javax.crypto.spec.SecretKeySpec(secret, "HmacSHA256"))
+                    macCInst.update("ONv1-C".toByteArray())
+                    macCInst.update(serverNonce)
+                    macCInst.update(myId)
+                    macCInst.update(0.toByte())
+                    macCInst.update(peerId)
+                    val hmacC = macCInst.doFinal()
+
+                    output.write(clientNonce)
+                    output.write(hmacC)
+                    output.writeShort(myId.size)
+                    output.write(myId)
+                    output.flush()
+
+                    val hmacS = ByteArray(32)
+                    input.readFully(hmacS)
+
+                    val macSInst = javax.crypto.Mac.getInstance("HmacSHA256")
+                    macSInst.init(javax.crypto.spec.SecretKeySpec(secret, "HmacSHA256"))
+                    macSInst.update("ONv1-S".toByteArray())
+                    macSInst.update(clientNonce)
+                    macSInst.update(peerId)
+                    macSInst.update(0.toByte())
+                    macSInst.update(myId)
+                    val expectedHmacS = macSInst.doFinal()
+
+                    if (!java.security.MessageDigest.isEqual(hmacS, expectedHmacS)) {
+                        throw Exception("HMAC mismatch")
+                    }
+
+                    socket.soTimeout = 30000 // Revert for file transfer
+                    
                     val nameBytes = fileName.toByteArray(Charsets.UTF_8)
                     val nameLen = nameBytes.size
-
-                    // Header: 4 bytes token length
-                    output.write(byteArrayOf(
-                        (tokenLen shr 24).toByte(),
-                        (tokenLen shr 16).toByte(),
-                        (tokenLen shr 8).toByte(),
-                        tokenLen.toByte()
-                    ))
-                    output.write(tokenBytes)
 
                     // Header: 4 bytes name length
                     output.write(byteArrayOf(

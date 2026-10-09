@@ -85,22 +85,63 @@ class ReceiverService : Service() {
 
     private fun handleIncomingFile(socket: java.net.Socket) {
         try {
-            socket.soTimeout = 30000 // 30 second timeout
+            socket.soTimeout = 5000 // Handshake timeout
             val input = DataInputStream(socket.getInputStream())
+            val output = java.io.DataOutputStream(socket.getOutputStream())
 
-            // Read token length (4 bytes)
-            val tokenLen = input.readInt()
-            val tokenBytes = ByteArray(tokenLen)
-            input.readFully(tokenBytes)
-            val receivedToken = String(tokenBytes)
-            
             val prefs = getSharedPreferences("OneNodePrefs", Context.MODE_PRIVATE)
-            val expectedToken = prefs.getString("pairing_token", "")
-            
-            if (receivedToken != expectedToken) {
+            val secretString = prefs.getString("pairing_secret", "")
+            val secret = android.util.Base64.decode(secretString, android.util.Base64.DEFAULT)
+            val myId = prefs.getString("server_device_id", "")!!.toByteArray()
+            val peerId = prefs.getString("device_id", "")!!.toByteArray()
+
+            val serverNonce = ByteArray(32)
+            java.security.SecureRandom().nextBytes(serverNonce)
+            output.writeByte(1)
+            output.write(serverNonce)
+            output.flush()
+
+            val clientNonce = ByteArray(32)
+            val hmacC = ByteArray(32)
+            input.readFully(clientNonce)
+            input.readFully(hmacC)
+
+            val idLen = input.readUnsignedShort()
+            if (idLen > 1024) { socket.close(); return }
+            val recvId = ByteArray(idLen)
+            input.readFully(recvId)
+
+            if (!recvId.contentEquals(peerId)) {
                 socket.close()
                 return
             }
+
+            val macCInst = javax.crypto.Mac.getInstance("HmacSHA256")
+            macCInst.init(javax.crypto.spec.SecretKeySpec(secret, "HmacSHA256"))
+            macCInst.update("ONv1-C".toByteArray())
+            macCInst.update(serverNonce)
+            macCInst.update(recvId)
+            macCInst.update(0.toByte())
+            macCInst.update(myId)
+            val expectedHmacC = macCInst.doFinal()
+
+            if (!java.security.MessageDigest.isEqual(hmacC, expectedHmacC)) {
+                socket.close()
+                return
+            }
+
+            val macSInst = javax.crypto.Mac.getInstance("HmacSHA256")
+            macSInst.init(javax.crypto.spec.SecretKeySpec(secret, "HmacSHA256"))
+            macSInst.update("ONv1-S".toByteArray())
+            macSInst.update(clientNonce)
+            macSInst.update(myId)
+            macSInst.update(0.toByte())
+            macSInst.update(recvId)
+            val hmacS = macSInst.doFinal()
+            output.write(hmacS)
+            output.flush()
+
+            socket.soTimeout = 30000 // Revert timeout for file transfer
 
             // Read filename length (4 bytes)
             val nameLen = input.readInt()

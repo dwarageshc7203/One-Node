@@ -3,6 +3,10 @@
 #include <QFileInfo>
 #include <QHostAddress>
 #include <QDataStream>
+#include <QSettings>
+#include <QRandomGenerator>
+#include <QMessageAuthenticationCode>
+#include <QCryptographicHash>
 
 FileTransfer::FileTransfer(QObject *parent)
     : QObject(parent), socket(new QTcpSocket(this)),
@@ -10,6 +14,8 @@ FileTransfer::FileTransfer(QObject *parent)
 {
     connect(socket, &QTcpSocket::connected,
             this, &FileTransfer::onConnected);
+    connect(socket, &QTcpSocket::readyRead,
+            this, &FileTransfer::onReadyRead);
     connect(socket, &QTcpSocket::bytesWritten,
             this, &FileTransfer::onBytesWritten);
     connect(socket, &QAbstractSocket::errorOccurred,
@@ -56,8 +62,75 @@ void FileTransfer::processNext() {
 }
 
 void FileTransfer::onConnected() {
-    qDebug() << "Connected to peer, sending:" << fileName;
-    
+    qDebug() << "Connected to peer, starting handshake";
+    hState = WaitServerGreeting;
+    hBuffer.clear();
+}
+
+void FileTransfer::onReadyRead() {
+    if (hState == Completed) return;
+
+    hBuffer.append(socket->readAll());
+
+    QSettings settings("One Node", "One Node");
+    QByteArray secret = QByteArray::fromBase64(settings.value("pairing_secret").toString().toUtf8());
+    QByteArray myId = settings.value("server_device_id").toString().toUtf8();
+    QByteArray peerId = settings.value("device_id").toString().toUtf8();
+
+    if (hState == WaitServerGreeting) {
+        if (hBuffer.size() < 33) return;
+        if (hBuffer[0] != 0x01) { socket->disconnectFromHost(); return; }
+        
+        QByteArray serverNonce = hBuffer.mid(1, 32);
+        hBuffer.remove(0, 33);
+
+        clientNonce.resize(32);
+        for (int i = 0; i < 32; ++i) {
+            clientNonce[i] = static_cast<char>(QRandomGenerator::system()->bounded(256));
+        }
+
+        QByteArray msgC = "ONv1-C" + serverNonce + myId + QByteArray("\x00", 1) + peerId;
+        QMessageAuthenticationCode macC(QCryptographicHash::Sha256);
+        macC.setKey(secret);
+        macC.addData(msgC);
+        QByteArray hmacC = macC.result();
+
+        QByteArray resp;
+        resp.append(clientNonce);
+        resp.append(hmacC);
+        quint16 idLen = myId.size();
+        resp.append((idLen >> 8) & 0xFF);
+        resp.append(idLen & 0xFF);
+        resp.append(myId);
+        socket->write(resp);
+        socket->flush();
+
+        hState = WaitServerMac;
+    }
+
+    if (hState == WaitServerMac) {
+        if (hBuffer.size() < 32) return;
+        
+        QByteArray hmacS = hBuffer.left(32);
+        hBuffer.remove(0, 32);
+
+        QByteArray msgS = "ONv1-S" + clientNonce + peerId + QByteArray("\x00", 1) + myId;
+        QMessageAuthenticationCode macS(QCryptographicHash::Sha256);
+        macS.setKey(secret);
+        macS.addData(msgS);
+        QByteArray expectedHmacS = macS.result();
+
+        int diff = 0;
+        for (int i = 0; i < 32; ++i) diff |= (hmacS[i] ^ expectedHmacS[i]);
+        if (diff != 0) { socket->disconnectFromHost(); return; }
+
+        hState = Completed;
+        // Handshake OK, now start transfer
+        startSendingFile();
+    }
+}
+
+void FileTransfer::startSendingFile() {
     QFile f(filePath);
     if (!f.open(QIODevice::ReadOnly)) {
         qDebug() << "Cannot open file!";
@@ -66,7 +139,6 @@ void FileTransfer::onConnected() {
         return;
     }
 
-    qDebug() << "File size:" << fileSize;
     emit transferStarted(fileName);
 
     QByteArray nameBytes = fileName.toUtf8();
@@ -75,15 +147,6 @@ void FileTransfer::onConnected() {
 
     QByteArray header;
     
-    QByteArray tokenBytes = token.toUtf8();
-    qint32 tokenLen = (qint32)tokenBytes.size();
-    header.resize(4);
-    header[0] = (tokenLen >> 24) & 0xFF;
-    header[1] = (tokenLen >> 16) & 0xFF;
-    header[2] = (tokenLen >>  8) & 0xFF;
-    header[3] = (tokenLen      ) & 0xFF;
-    header.append(tokenBytes);
-
     QByteArray nameHeader(4, 0);
     nameHeader[0] = (nameLen >> 24) & 0xFF;
     nameHeader[1] = (nameLen >> 16) & 0xFF;
@@ -103,9 +166,6 @@ void FileTransfer::onConnected() {
     sizeBytes[7] = (fSize      ) & 0xFF;
     header.append(sizeBytes);
 
-    qDebug() << "Header size:" << header.size();
-    qDebug() << "Name length:" << nameLen;
-
     socket->write(header);
 
     QByteArray buffer;
@@ -114,14 +174,11 @@ void FileTransfer::onConnected() {
         buffer = f.read(65536);
         socket->write(buffer);
         totalSent += buffer.size();
-        qDebug() << "Sent chunk, total so far:" << totalSent;
     }
     f.close();
     socket->flush();
 
-    qDebug() << "Transfer complete, total sent:" << totalSent;
     transferCompleted = true;
-    // Don't set transferActive to false here, wait for disconnected signal to call processNext
     emit transferDone(fileName);
     socket->disconnectFromHost();
 }

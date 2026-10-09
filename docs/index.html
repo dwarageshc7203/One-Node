@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One Node — Instant P2P File Transfer</title>
+    <meta name="description" content="Instant peer-to-peer file transfer between your Linux desktop and Android phone. No cloud, no cables, no accounts.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --surface-color: #1f2833;
+            --accent-primary: #66fcf1;
+            --accent-secondary: #45a29e;
+            --text-primary: #ffffff;
+            --text-secondary: #c5c6c7;
+            --glass-bg: rgba(31, 40, 51, 0.65);
+            --glass-border: rgba(102, 252, 241, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Subtle Background Gradient Animation */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 50% 50%, rgba(102,252,241,0.1), transparent 50%);
+            animation: pulse 15s infinite alternate ease-in-out;
+            z-index: -1;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.1) translate(2%, 2%); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        header {
+            padding: 2rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+        }
+
+        .hero {
+            padding: 8rem 0;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 4.5rem;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, var(--text-primary) 30%, var(--accent-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 3rem auto;
+            font-weight: 300;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 50px;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-primary);
+            color: var(--bg-color);
+            box-shadow: 0 4px 15px rgba(102, 252, 241, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 252, 241, 0.6);
+            background-color: #79fcf3;
+        }
+
+        .btn-secondary {
+            background: var(--glass-bg);
+            color: var(--text-primary);
+            border-color: var(--glass-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-3px);
+            background: rgba(102, 252, 241, 0.1);
+            border-color: var(--accent-primary);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            padding: 4rem 0 8rem 0;
+        }
+
+        .feature-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2.5rem;
+            backdrop-filter: blur(12px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-primary);
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent-primary);
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0;
+            border-top: 1px solid var(--glass-border);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 3rem; }
+            .btn-group { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="#" class="logo">
+                <div style="width:40px; height:40px; background:var(--accent-primary); border-radius:8px; display:flex; align-items:center; justify-content:center; color:#0b0c10; font-size:1.2rem; font-weight:800;">ON</div>
+                One Node
+            </a>
+            <a href="https://github.com/dwarageshc7203/One-Node" class="btn btn-secondary" style="padding: 0.6rem 1.5rem; font-size: 0.9rem;">GitHub</a>
+        </header>
+
+        <section class="hero">
+            <h1>Drop it here.<br>It's there.</h1>
+            <p>Instant, peer-to-peer file transfer between your Desktop and Android phone. No cloud. No accounts. Just your local network.</p>
+            <div class="btn-group">
+                <a href="https://github.com/dwarageshc7203/One-Node/releases/latest" class="btn btn-primary">Download APK</a>
+                <a href="https://github.com/dwarageshc7203/One-Node/releases/latest" class="btn btn-secondary">Linux AppImage</a>
+            </div>
+            <p style="margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-secondary);">Windows Support Coming Soon</p>
+        </section>
+
+        <section class="features">
+            <div class="feature-card">
+                <h3>Zero Config</h3>
+                <p>Devices discover each other automatically on your local Wi-Fi. No IP addresses to type, no tedious setup.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Secure by Design</h3>
+                <p>Transfers stay on your local network. Paired devices communicate over authenticated connections secured by HMAC-SHA256.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Blazing Fast</h3>
+                <p>Files travel at the maximum speed of your local router with zero internet bottleneck or cloud server delays.</p>
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 2024 Dwaragesh. Released under the MIT License.</p>
+        </footer>
+    </div>
+</body>
+</html>

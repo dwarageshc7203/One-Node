@@ -15,7 +15,7 @@ public:
     int  port() const { return 45678; }
 
 signals:
-    void devicePaired(const QString &deviceName, const QString &token, const QString &deviceIp);
+    void devicePaired(const QString &deviceName, const QString &deviceId, const QString &secret, const QString &serverDeviceId, const QString &deviceIp);
     void pairingFailed(const QString &reason);
     
 private slots:

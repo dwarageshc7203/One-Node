@@ -36,15 +36,19 @@ private slots:
     void onQuitClicked();
     void onRegenerateClicked();
     void onTickTimer();
-    void onDevicePaired(const QString &deviceName, const QString &token, const QString &deviceIp);
+    void onDevicePaired(const QString &deviceName, const QString &deviceId, const QString &secret, const QString &serverDeviceId, const QString &deviceIp);
     void onPairingFailed(const QString &reason);
     void onTransferDone(const QString &fileName);
     void onTransferFailed(const QString &reason);
 
 private:
     struct IncomingTransferState {
-        qint32 tokenLength = -1;
-        QString token;
+        enum HandshakeState { WaitClientGreeting, Completed };
+        HandshakeState hState = WaitClientGreeting;
+        QByteArray hBuffer;
+        QByteArray serverNonce;
+        bool authenticated = false;
+        
         qint32 nameLength = -1;
         QString fileName;
         qint64 fileSize = -1;

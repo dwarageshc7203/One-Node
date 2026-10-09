@@ -97,7 +97,7 @@ No compression, no overhead, no middlemen. Just raw bytes over your local networ
 ## Installation
 
 ### Android
-Download the latest APK from the [Releases](https://github.com/dwarageshc7203/OneNode/releases) page and install it on your phone.
+Download the latest APK from the [Releases](https://github.com/dwarageshc7203/One-Node/releases) page and install it on your phone.
 
 > Enable "Install from unknown sources" in your Android settings if prompted.
 
@@ -105,8 +105,8 @@ Download the latest APK from the [Releases](https://github.com/dwarageshc7203/On
 No dependencies required. Download and run:
 
 ```bash
-chmod +x OneNode-x86_64.AppImage
-./OneNode-x86_64.AppImage
+chmod +x One-Node-x86_64.AppImage
+./One-Node-x86_64.AppImage
 ```
 
 ### Linux — Build from Source
@@ -126,8 +126,8 @@ sudo apt install qt6-base-dev cmake g++ ninja-build \
 
 **Clone and build:**
 ```bash
-git clone https://github.com/dwarageshc7203/OneNode.git
-cd OneNode
+git clone https://github.com/dwarageshc7203/One-Node.git
+cd One-Node
 
 mkdir build && cd build
 cmake .. -G Ninja
@@ -144,7 +144,7 @@ ninja
 ## Project Structure
 
 ```
-OneNode/
+One-Node/
 ├── main.cpp                 ← App entry point
 ├── mainwindow.h/.cpp        ← Main window, UI, drag & drop, tray icon
 ├── pairingserver.h/.cpp     ← TCP pairing server (port 45678)
@@ -193,8 +193,8 @@ new platforms. If you use the app and want to make it better, this is your repo.
 
 ```bash
 # Fork the repo on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/OneNode.git
-cd OneNode
+git clone https://github.com/YOUR_USERNAME/One-Node.git
+cd One-Node
 git checkout -b feature/your-feature-name
 ```
 
@@ -230,7 +230,7 @@ If you're new to the codebase, these are well-scoped starting points:
 
 ### Reporting Bugs
 
-Open a [GitHub Issue](https://github.com/dwarageshc7203/OneNode/issues) and include:
+Open a [GitHub Issue](https://github.com/dwarageshc7203/One-Node/issues) and include:
 - What you were doing
 - What you expected
 - What actually happened
@@ -248,7 +248,7 @@ Open a [GitHub Issue](https://github.com/dwarageshc7203/OneNode/issues) and incl
 **Kotlin (Android):**
 - All IO on `Dispatchers.IO`
 - All UI updates on `Dispatchers.Main` or `runOnUiThread`
-- Log with `Log.d("OneNode", "...")` for traceability
+- Log with `Log.d("One-Node", "...")` for traceability
 
 ---
 
@@ -264,7 +264,7 @@ Open a [GitHub Issue](https://github.com/dwarageshc7203/OneNode/issues) and incl
 - [ ] Auto-reconnect when IP changes (without re-pairing)
 - [ ] Multiple simultaneous transfers
 
-Have an idea not on this list? [Open an issue](https://github.com/dwarageshc7203/OneNode/issues) and let's discuss it.
+Have an idea not on this list? [Open an issue](https://github.com/dwarageshc7203/One-Node/issues) and let's discuss it.
 
 ---
 

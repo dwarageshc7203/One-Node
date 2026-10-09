@@ -16,6 +16,8 @@
 #include <QHostAddress>
 #include <QUrl>
 #include <QDebug>
+#include <QMessageAuthenticationCode>
+#include <QCryptographicHash>
 
 namespace {
 qint32 readBigEndianInt32(const QByteArray &bytes)
@@ -77,7 +79,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setAcceptDrops(true);
 
     const QString savedIp = settings->value("device_ip").toString();
-    const QString savedToken = settings->value("pairing_token").toString();
+    const QString savedToken = settings->value("pairing_secret").toString();
     if (!savedIp.isEmpty() && !savedToken.isEmpty()) {
         showLinkedState(settings->value("device_name").toString());
     } else {
@@ -107,7 +109,7 @@ void MainWindow::dropEvent(QDropEvent *event) {
     }
 
     const auto urls = event->mimeData()->urls();
-    QString token = settings->value("pairing_token").toString();
+    QString token = settings->value("pairing_secret").toString();
     for (const QUrl &url : urls) {
         QString filePath = url.toLocalFile();
         if (!filePath.isEmpty()) {
@@ -129,7 +131,7 @@ void MainWindow::sendFilePath(const QString &filePath) {
     trayIcon->showMessage("One Node",
         "Sending: " + QFileInfo(filePath).fileName(),
         QSystemTrayIcon::Information, 2000);
-    QString token = settings->value("pairing_token").toString();
+    QString token = settings->value("pairing_secret").toString();
     fileTransfer->sendFile(filePath, peerIp, 45679, token);
 }
 
@@ -172,13 +174,15 @@ void MainWindow::onRegenerateClicked() {
     applyCode(generateCode());
 }
 
-void MainWindow::onDevicePaired(const QString &deviceName, const QString &token, const QString &deviceIp) {
+void MainWindow::onDevicePaired(const QString &deviceName, const QString &deviceId, const QString &secret, const QString &serverDeviceId, const QString &deviceIp) {
     countdownTimer->stop();
     QString cleanIp = deviceIp;
     if (cleanIp.startsWith("::ffff:"))
         cleanIp = cleanIp.mid(7);
     settings->setValue("device_name", deviceName);
-    settings->setValue("pairing_token", token);
+    settings->setValue("device_id", deviceId);
+    settings->setValue("server_device_id", serverDeviceId);
+    settings->setValue("pairing_secret", secret);
     settings->setValue("device_ip", cleanIp);
     settings->sync();
     showLinkedState(deviceName);
@@ -201,7 +205,9 @@ void MainWindow::showLinkedState(const QString &deviceName) {
     connect(regenerateBtn, &QPushButton::clicked, this, [this]() {
         stopHeartbeat();
         settings->remove("device_name");
-        settings->remove("pairing_token");
+        settings->remove("device_id");
+        settings->remove("server_device_id");
+        settings->remove("pairing_secret");
         settings->remove("device_ip");
         settings->sync();
         regenerateBtn->setText("Regenerate");
@@ -232,24 +238,9 @@ void MainWindow::onTransferFailed(const QString &reason) {
         || reason.contains("timed out", Qt::CaseInsensitive)
         || reason.contains("network is unreachable", Qt::CaseInsensitive)
         || reason.contains("host not found", Qt::CaseInsensitive)) {
-        settings->remove("device_name");
-        settings->remove("pairing_token");
-        settings->remove("device_ip");
-        settings->sync();
-
-        QTimer::singleShot(2000, this, [this]() {
-            codeLabel->setText("--- ---");
-            timerLabel->setText("");
-            linkedLabel->setText("");
-            regenerateBtn->setText("Regenerate");
-            trayIcon->setToolTip("One Node — not linked");
-
-            disconnect(regenerateBtn, &QPushButton::clicked, nullptr, nullptr);
-            connect(regenerateBtn, &QPushButton::clicked,
-                    this, &MainWindow::onRegenerateClicked);
-
-            onRegenerateClicked();
-        });
+        
+        heartbeatOnline = false;
+        statusLabel->setText("⚠️  Device offline");
     }
 }
 
@@ -393,7 +384,21 @@ void MainWindow::setupDesktopReceiver() {
     connect(desktopReceiverServer, &QTcpServer::newConnection, this, [this]() {
         while (desktopReceiverServer->hasPendingConnections()) {
             QTcpSocket *socket = desktopReceiverServer->nextPendingConnection();
-            incomingTransfers.insert(socket, IncomingTransferState{});
+            
+            IncomingTransferState state;
+            state.serverNonce.resize(32);
+            for (int i = 0; i < 32; ++i) {
+                state.serverNonce[i] = static_cast<char>(QRandomGenerator::system()->bounded(256));
+            }
+            
+            QByteArray greeting;
+            greeting.append(0x01); // version
+            greeting.append(state.serverNonce);
+            socket->write(greeting);
+            socket->flush();
+            
+            incomingTransfers.insert(socket, state);
+            
             connect(socket, &QTcpSocket::readyRead, this, [this, socket]() {
                 processIncomingTransfer(socket);
             });
@@ -416,37 +421,64 @@ void MainWindow::processIncomingTransfer(QTcpSocket *socket) {
     IncomingTransferState &state = it.value();
     state.buffer.append(socket->readAll());
 
+    if (!state.authenticated) {
+        if (state.hState == IncomingTransferState::WaitClientGreeting) {
+            // Wait for 32 (clientNonce) + 32 (hmacC) + 2 (idLen) = 66 bytes min
+            if (state.buffer.size() < 66) return;
+
+            QByteArray clientNonce = state.buffer.left(32);
+            QByteArray hmacC = state.buffer.mid(32, 32);
+            quint16 idLen = (static_cast<quint8>(state.buffer[64]) << 8) | static_cast<quint8>(state.buffer[65]);
+
+            if (state.buffer.size() < 66 + idLen) return;
+
+            QByteArray recvId = state.buffer.mid(66, idLen);
+            state.buffer.remove(0, 66 + idLen);
+
+            QByteArray secret = QByteArray::fromBase64(settings->value("pairing_secret").toString().toUtf8());
+            QByteArray myId = settings->value("server_device_id").toString().toUtf8();
+            // In a multi-device setup, we would look up secret by recvId here. 
+            // For now, we only support one paired device in QSettings.
+            QByteArray peerId = settings->value("device_id").toString().toUtf8();
+
+            if (recvId != peerId) {
+                qWarning() << "Unknown peer ID!";
+                cleanupIncomingTransfer(socket);
+                socket->disconnectFromHost();
+                return;
+            }
+
+            QByteArray msgC = "ONv1-C" + state.serverNonce + recvId + QByteArray("\x00", 1) + myId;
+            QMessageAuthenticationCode macC(QCryptographicHash::Sha256);
+            macC.setKey(secret);
+            macC.addData(msgC);
+            QByteArray expectedHmacC = macC.result();
+
+            int diff = 0;
+            for (int i = 0; i < 32; ++i) diff |= (hmacC[i] ^ expectedHmacC[i]);
+            if (diff != 0) {
+                cleanupIncomingTransfer(socket);
+                socket->disconnectFromHost();
+                return;
+            }
+
+            // Send HMAC_S
+            QByteArray msgS = "ONv1-S" + clientNonce + myId + QByteArray("\x00", 1) + recvId;
+            QMessageAuthenticationCode macS(QCryptographicHash::Sha256);
+            macS.setKey(secret);
+            macS.addData(msgS);
+            QByteArray hmacS = macS.result();
+            socket->write(hmacS);
+            socket->flush();
+
+            state.hState = IncomingTransferState::Completed;
+            state.authenticated = true;
+        }
+    }
+
+    if (!state.authenticated) return;
+
     while (true) {
-        if (state.tokenLength < 0) {
-            if (state.buffer.size() < 4) return;
-            state.tokenLength = readBigEndianInt32(state.buffer.left(4));
-            state.buffer.remove(0, 4);
-
-            if (state.tokenLength <= 0 || state.tokenLength > 1024) {
-                qWarning() << "Invalid token length:" << state.tokenLength;
-                cleanupIncomingTransfer(socket);
-                socket->disconnectFromHost();
-                return;
-            }
-        }
-        if (state.token.isEmpty()) {
-            if (state.buffer.size() < state.tokenLength) return;
-
-            QByteArray tokenBytes = state.buffer.left(state.tokenLength);
-            state.buffer.remove(0, state.tokenLength);
-
-            state.token = QString::fromUtf8(tokenBytes);
-            QString expectedToken = settings->value("pairing_token").toString();
-            if (state.token != expectedToken) {
-                qWarning() << "Invalid pairing token received!";
-                qDebug() << "Expected:" << expectedToken;
-                qDebug() << "Received:" << state.token;
-                cleanupIncomingTransfer(socket);
-                socket->disconnectFromHost();
-                return;
-            }
-        }
-
         if (state.nameLength < 0) {
             if (state.buffer.size() < 4) return;
             state.nameLength = readBigEndianInt32(state.buffer.left(4));
@@ -558,7 +590,7 @@ void MainWindow::sendHeartbeatPing() {
     if (pingInFlight) return;
 
     QString peerIp = settings->value("device_ip").toString();
-    QString token  = settings->value("pairing_token").toString();
+    QString token  = settings->value("pairing_secret").toString();
 
     if (peerIp.isEmpty() || token.isEmpty()) return;
 
