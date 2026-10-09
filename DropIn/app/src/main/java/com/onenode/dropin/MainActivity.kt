@@ -292,6 +292,12 @@ class MainActivity : AppCompatActivity() {
         btnPair.isEnabled = false
 
         lifecycleScope.launch {
+            var savedDeviceId = prefs.getString("device_id", null)
+            if (savedDeviceId.isNullOrEmpty()) {
+                savedDeviceId = java.util.UUID.randomUUID().toString()
+            }
+            val deviceId = savedDeviceId!!
+
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     val socket = Socket()
@@ -299,8 +305,6 @@ class MainActivity : AppCompatActivity() {
                     
                     val writer = socket.getOutputStream().bufferedWriter()
                     val reader = socket.getInputStream().bufferedReader()
-
-                    val deviceId = prefs.getString("device_id", "") ?: java.util.UUID.randomUUID().toString()
                     val request = mapOf(
                         "code" to code,
                         "device" to Build.MODEL,
@@ -322,7 +326,6 @@ class MainActivity : AppCompatActivity() {
                 if (response["status"] == "ok") {
                     val secret = response["secret"] as String
                     val serverDeviceId = response["device_id"] as String
-                    val deviceId = java.util.UUID.randomUUID().toString()
                     prefs.edit()
                         .putString("pairing_secret", secret)
                         .putString("device_id", deviceId)
