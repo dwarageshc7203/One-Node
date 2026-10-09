@@ -1,5 +1,0 @@
-/home/dwaragesh/Documents/Projects/One-Node/build/CMakeFiles/onenode.dir
-/home/dwaragesh/Documents/Projects/One-Node/build/CMakeFiles/edit_cache.dir
-/home/dwaragesh/Documents/Projects/One-Node/build/CMakeFiles/rebuild_cache.dir
-/home/dwaragesh/Documents/Projects/One-Node/build/CMakeFiles/onenode_autogen_timestamp_deps.dir
-/home/dwaragesh/Documents/Projects/One-Node/build/CMakeFiles/onenode_autogen.dir
