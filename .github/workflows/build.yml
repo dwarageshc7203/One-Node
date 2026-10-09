@@ -46,11 +46,15 @@ jobs:
         cd build
         cmake .. 
         cmake --build . --config Release
+    - name: Deploy Qt Dependencies
+      run: |
+        cd build/Release
+        windeployqt onenode.exe
     - name: Upload Windows Binary
       uses: actions/upload-artifact@v4
       with:
         name: OneNode-Windows
-        path: build/Release/onenode.exe
+        path: build/Release/
 
   build-android:
     runs-on: ubuntu-latest
