@@ -105,8 +105,8 @@ void FileTransfer::onReadyRead() {
         resp.append(clientNonce);
         resp.append(hmacC);
         quint16 idLen = myId.size();
-        resp.append((idLen >> 8) & 0xFF);
-        resp.append(idLen & 0xFF);
+        resp.append(static_cast<char>((idLen >> 8) & 0xFF));
+        resp.append(static_cast<char>(idLen & 0xFF));
         resp.append(myId);
         socket->write(resp);
         socket->flush();
