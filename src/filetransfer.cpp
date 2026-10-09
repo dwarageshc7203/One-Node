@@ -21,7 +21,13 @@ FileTransfer::FileTransfer(QObject *parent)
     connect(socket, &QAbstractSocket::errorOccurred,
             this, &FileTransfer::onError);
     connect(socket, &QTcpSocket::disconnected,
-            this, &FileTransfer::processNext);
+            this, [this]() {
+                if (transferActive && !transferCompleted) {
+                    emit transferFailed("Peer disconnected unexpectedly.");
+                    transferActive = false;
+                }
+                processNext();
+            });
 }
 
 void FileTransfer::sendFile(const QString &path, const QString &peerIp, int port, const QString &token) {
