@@ -2,6 +2,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QUuid>
+#include <QRandomGenerator>
 
 PairingServer::PairingServer(QObject *parent)
     : QObject(parent), server(new QTcpServer(this)), pendingClient(nullptr)
@@ -69,8 +70,10 @@ void PairingServer::onDataReceived() {
     }
 
     // Generate 32-byte secure random secret
-    QByteArray secretBytes(32, 0);
-    QRandomGenerator::system()->generate(reinterpret_cast<quint32*>(secretBytes.data()), secretBytes.size() / sizeof(quint32));
+    QByteArray secretBytes;
+    for (int i = 0; i < 32; ++i) {
+        secretBytes.append(static_cast<char>(QRandomGenerator::system()->bounded(256)));
+    }
     QString secretBase64 = secretBytes.toBase64();
 
     // The desktop also needs its own device_id (will be passed or retrieved in MainWindow)
