@@ -10,6 +10,7 @@ if(WIN32)
         src/mainwindow.cpp
         src/pairingserver.cpp
         src/filetransfer.cpp
+        src/discoverybackend.cpp
         src/udpbeaconbackend.cpp
         resources/resources.qrc
     )
@@ -26,6 +27,7 @@ else()
         src/mdnsadvertiser.cpp
         src/pairingserver.cpp
         src/filetransfer.cpp
+        src/discoverybackend.cpp
         resources/resources.qrc
     )
     add_executable(onenode ${SOURCES})

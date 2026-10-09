@@ -6,8 +6,8 @@
 class DiscoveryBackend : public QObject {
     Q_OBJECT
 public:
-    explicit DiscoveryBackend(QObject *parent = nullptr) : QObject(parent) {}
-    virtual ~DiscoveryBackend() {}
+    explicit DiscoveryBackend(QObject *parent = nullptr);
+    ~DiscoveryBackend() override;
 
     virtual void start() = 0;
     virtual void stop() = 0;
