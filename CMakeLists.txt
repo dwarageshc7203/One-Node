@@ -16,3 +16,8 @@ add_executable(onenode
 )
 target_include_directories(onenode PRIVATE src ${AVAHI_INCLUDE_DIRS})
 target_link_libraries(onenode Qt6::Core Qt6::Widgets Qt6::Network Qt6::Gui ${AVAHI_LIBRARIES})
+
+find_package(Qt6 COMPONENTS Test REQUIRED)
+add_executable(onenode_test src/test_hmac.cpp)
+target_include_directories(onenode_test PRIVATE src)
+target_link_libraries(onenode_test Qt6::Core Qt6::Network Qt6::Test)

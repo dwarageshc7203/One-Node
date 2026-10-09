@@ -161,7 +161,7 @@ class ReceiverService : Service() {
             dir.mkdirs()
 
             val outFile = File(dir, fileName)
-            val output = outFile.outputStream()
+            val fileOutput = outFile.outputStream()
             val buffer = ByteArray(8192)
             var received = 0L
             var lastPercent = 0
@@ -170,7 +170,7 @@ class ReceiverService : Service() {
                 val toRead = minOf(buffer.size.toLong(), fileSize - received).toInt()
                 val read = input.read(buffer, 0, toRead)
                 if (read == -1) break
-                output.write(buffer, 0, read)
+                fileOutput.write(buffer, 0, read)
                 received += read
                 
                 val currentPercent = ((received * 100) / fileSize).toInt()
@@ -180,8 +180,8 @@ class ReceiverService : Service() {
                 }
             }
 
-            output.flush()
-            output.close()
+            fileOutput.flush()
+            fileOutput.close()
             socket.close()
 
             showCompletionNotification(fileName, outFile)

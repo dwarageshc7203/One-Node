@@ -122,6 +122,42 @@ class MainActivity : AppCompatActivity() {
         checkPermissions()
         updateUiState()
         setupNsd()
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        when (intent.action) {
+            Intent.ACTION_SEND -> {
+                val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                }
+                if (uri != null) {
+                    fileQueue.add(uri)
+                    processQueue()
+                }
+            }
+            Intent.ACTION_SEND_MULTIPLE -> {
+                val uris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
+                }
+                if (uris != null) {
+                    fileQueue.addAll(uris)
+                    processQueue()
+                }
+            }
+        }
     }
 
     private fun setupNsd() {
