@@ -18,7 +18,7 @@
 #include "filetransfer.h"
 
 class QFile;
-class MdnsAdvertiser;
+class DiscoveryBackend;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -86,7 +86,7 @@ private:
     QTimer         *countdownTimer;
     PairingServer  *pairingServer;
     FileTransfer   *fileTransfer;
-    MdnsAdvertiser *mdnsAdvertiser;
+    DiscoveryBackend *discoveryBackend;
     QTimer         *heartbeatTimer;
     int             pingFailures;
     bool            heartbeatOnline;

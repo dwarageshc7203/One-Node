@@ -1,5 +1,9 @@
 #include "mainwindow.h"
+#ifdef Q_OS_WIN
+#include "udpbeaconbackend.h"
+#else
 #include "mdnsadvertiser.h"
+#endif
 #include <QApplication>
 #include <QIcon>
 #include <QPixmap>
@@ -42,7 +46,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     countdownTimer = new QTimer(this);
     pairingServer  = new PairingServer(this);
     fileTransfer   = new FileTransfer(this);
-    mdnsAdvertiser = new MdnsAdvertiser(this);
+#ifdef Q_OS_WIN
+    discoveryBackend = new UdpBeaconBackend(this);
+#else
+    discoveryBackend = new MdnsAdvertiser(this);
+#endif
     heartbeatTimer = new QTimer(this);
     desktopReceiverServer = nullptr;
     pingFailures = 0;
@@ -75,7 +83,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setupUI();
     setupTray();
     setupDesktopReceiver();
-    mdnsAdvertiser->start();
+    discoveryBackend->start();
     setAcceptDrops(true);
 
     const QString savedIp = settings->value("device_ip").toString();

@@ -31,6 +31,27 @@ jobs:
         name: OneNode-Linux
         path: build/onenode
 
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.5.0'
+        arch: 'win64_msvc2019_64'
+    - name: Build C++ Desktop App
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. 
+        cmake --build . --config Release
+    - name: Upload Windows Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: OneNode-Windows
+        path: build/Release/onenode.exe
+
   build-android:
     runs-on: ubuntu-latest
     steps:

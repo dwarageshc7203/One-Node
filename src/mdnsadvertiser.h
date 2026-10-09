@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QObject>
+#include "discoverybackend.h"
 #include <QString>
 #include <thread>
 #include <atomic>
@@ -10,13 +10,13 @@
 
 struct AvahiSimplePoll;
 
-class MdnsAdvertiser : public QObject {
+class MdnsAdvertiser : public DiscoveryBackend {
 public:
     explicit MdnsAdvertiser(QObject *parent = nullptr);
     ~MdnsAdvertiser() override;
 
-    void start();
-    void stop();
+    void start() override;
+    void stop() override;
 
 private:
     static void clientCallback(AvahiClient *client, AvahiClientState state, void *userdata);
