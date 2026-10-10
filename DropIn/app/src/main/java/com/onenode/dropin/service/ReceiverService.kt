@@ -44,13 +44,17 @@ class ReceiverService : Service() {
     private fun startListening() {
         scope.launch {
             try {
-                serverSocket = ServerSocket(PORT)
+                serverSocket = ServerSocket()
+                serverSocket?.reuseAddress = true
+                serverSocket?.bind(java.net.InetSocketAddress(PORT))
                 while (true) {
                     val client = serverSocket!!.accept()
                     launch { handleIncomingFile(client) }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                val prefs = getSharedPreferences("OneNodePrefs", Context.MODE_PRIVATE)
+                prefs.edit().putString("last_error", "ServerSocket Error: ${e.message}").apply()
             }
         }
     }
