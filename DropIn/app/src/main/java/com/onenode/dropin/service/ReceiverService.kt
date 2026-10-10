@@ -107,22 +107,19 @@ class ReceiverService : Service() {
             val hmacC = ByteArray(32)
             input.readFully(clientNonce)
             input.readFully(hmacC)
-
-            val debugDir = getExternalFilesDir(null)
-            val debugFile = File(debugDir, "onenode_debug.txt")
-            debugFile.appendText("Incoming connection\n")
+            
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            fun showError(msg: String) {
+                nm.notify(1, buildNotification(msg))
+            }
 
             val idLen = input.readUnsignedShort()
-            debugFile.appendText("idLen: $idLen\n")
-            if (idLen > 1024) { socket.close(); return }
+            if (idLen > 1024) { showError("Error: idLen > 1024"); socket.close(); return }
             val recvId = ByteArray(idLen)
             input.readFully(recvId)
 
-            debugFile.appendText("recvId: ${String(recvId)}\n")
-            debugFile.appendText("peerId: ${String(peerId)}\n")
-
             if (!recvId.contentEquals(peerId)) {
-                debugFile.appendText("ERROR: recvId != peerId\n")
+                showError("Error: recvId mismatch. recvId=${String(recvId)}, peerId=${String(peerId)}")
                 socket.close()
                 return
             }
@@ -136,15 +133,11 @@ class ReceiverService : Service() {
             macCInst.update(myId)
             val expectedHmacC = macCInst.doFinal()
 
-            debugFile.appendText("hmacC matches: ${java.security.MessageDigest.isEqual(hmacC, expectedHmacC)}\n")
-
             if (!java.security.MessageDigest.isEqual(hmacC, expectedHmacC)) {
-                debugFile.appendText("ERROR: HMAC mismatch\n")
+                showError("Error: HMAC C mismatch")
                 socket.close()
                 return
             }
-
-            debugFile.appendText("Handshake successful\n")
 
             val macSInst = javax.crypto.Mac.getInstance("HmacSHA256")
             macSInst.init(javax.crypto.spec.SecretKeySpec(secret, "HmacSHA256"))
