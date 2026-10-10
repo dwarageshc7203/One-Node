@@ -163,14 +163,21 @@ class ReceiverService : Service() {
             // Read file size (8 bytes)
             val fileSize = input.readLong()
 
-            // Save to Downloads/OneNode/
-            val dir = File(
-                Environment.getExternalStoragePublicDirectory(
-                    Environment.DIRECTORY_DOWNLOADS), "OneNode")
-            dir.mkdirs()
+            val resolver = applicationContext.contentResolver
+            val contentValues = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(android.provider.MediaStore.MediaColumns.SIZE, fileSize)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/OneNode")
+                }
+            }
 
-            val outFile = File(dir, fileName)
-            val fileOutput = outFile.outputStream()
+            val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                ?: throw Exception("Failed to create MediaStore entry")
+            
+            val fileOutput = resolver.openOutputStream(uri) 
+                ?: throw Exception("Failed to open output stream")
+
             val buffer = ByteArray(8192)
             var received = 0L
             var lastPercent = 0
@@ -193,7 +200,7 @@ class ReceiverService : Service() {
             fileOutput.close()
             socket.close()
 
-            showCompletionNotification(fileName, outFile)
+            showCompletionNotification(fileName, uri)
 
         } catch (e: Exception) {
             e.printStackTrace()
@@ -211,12 +218,11 @@ class ReceiverService : Service() {
         nm.notify(2, notification)
     }
 
-    private fun showCompletionNotification(fileName: String, file: File) {
+    private fun showCompletionNotification(fileName: String, uri: android.net.Uri) {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(2) // cancel progress
         
-        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-        val ext = file.extension
+        val ext = fileName.substringAfterLast('.', "")
         val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
         
         val intent = Intent(Intent.ACTION_VIEW).apply {
