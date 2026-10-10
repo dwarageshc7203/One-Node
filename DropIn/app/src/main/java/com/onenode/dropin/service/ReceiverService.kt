@@ -160,14 +160,15 @@ class ReceiverService : Service() {
 
             // Read filename length (4 bytes)
             val nameLen = input.readInt()
+            if (nameLen > 1024) { showError("Error: nameLen > 1024"); socket.close(); return }
+
+            // Read file size (8 bytes) FIRST, to match Desktop's write order!
+            val fileSize = input.readLong()
 
             // Read filename
             val nameBytes = ByteArray(nameLen)
             input.readFully(nameBytes)
             val fileName = String(nameBytes)
-
-            // Read file size (8 bytes)
-            val fileSize = input.readLong()
 
             val resolver = applicationContext.contentResolver
             val contentValues = android.content.ContentValues().apply {
