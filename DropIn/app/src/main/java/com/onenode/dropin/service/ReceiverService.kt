@@ -109,7 +109,6 @@ class ReceiverService : Service() {
             input.readFully(clientNonce)
             input.readFully(hmacC)
             
-            val prefs = getSharedPreferences("OneNodePrefs", Context.MODE_PRIVATE)
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             fun showError(msg: String) {
                 prefs.edit().putString("last_error", msg).apply()
@@ -207,8 +206,8 @@ class ReceiverService : Service() {
 
         } catch (e: Exception) {
             e.printStackTrace()
-            val prefs = getSharedPreferences("OneNodePrefs", Context.MODE_PRIVATE)
-            prefs.edit().putString("last_error", "Fatal error: ${e.message}").apply()
+            val localPrefs = getSharedPreferences("OneNodePrefs", Context.MODE_PRIVATE)
+            localPrefs.edit().putString("last_error", "Fatal error: ${e.message}").apply()
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.notify(3, buildNotification("Fatal error: ${e.message}"))
         }
