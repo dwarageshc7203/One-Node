@@ -108,8 +108,7 @@ class ReceiverService : Service() {
             input.readFully(clientNonce)
             input.readFully(hmacC)
 
-            val debugDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "OneNode")
-            debugDir.mkdirs()
+            val debugDir = getExternalFilesDir(null)
             val debugFile = File(debugDir, "onenode_debug.txt")
             debugFile.appendText("Incoming connection\n")
 
