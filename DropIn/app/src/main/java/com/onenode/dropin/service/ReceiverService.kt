@@ -36,7 +36,11 @@ class ReceiverService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(1, buildNotification("One Node — ready to receive files"))
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(1, buildNotification("One Node — ready to receive files"), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(1, buildNotification("One Node — ready to receive files"))
+        }
         startListening()
         startPingServer()
     }
@@ -51,10 +55,13 @@ class ReceiverService : Service() {
                     val client = serverSocket!!.accept()
                     launch { handleIncomingFile(client) }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
                 val prefs = getSharedPreferences("OneNodePrefs", Context.MODE_PRIVATE)
                 prefs.edit().putString("last_error", "ServerSocket Error: ${e.message}").apply()
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(applicationContext, "ServerSocket Error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -117,6 +124,9 @@ class ReceiverService : Service() {
             fun showError(msg: String) {
                 prefs.edit().putString("last_error", msg).apply()
                 nm.notify(1, buildNotification(msg))
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(applicationContext, msg, android.widget.Toast.LENGTH_LONG).show()
+                }
             }
 
             val idLen = input.readUnsignedShort()
@@ -209,12 +219,16 @@ class ReceiverService : Service() {
 
             showCompletionNotification(fileName, uri)
 
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             val localPrefs = getSharedPreferences("OneNodePrefs", Context.MODE_PRIVATE)
             localPrefs.edit().putString("last_error", "Fatal error: ${e.message}").apply()
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.notify(3, buildNotification("Fatal error: ${e.message}"))
+            
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(applicationContext, "OneNode Error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            }
         }
     }
 
