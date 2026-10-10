@@ -250,7 +250,14 @@ class MainActivity : AppCompatActivity() {
         val deviceName = prefs.getString("device_name", "Desktop")
 
         if (secret != null) {
-            tvStatus.text = "Linked to $deviceName"
+            val lastError = prefs.getString("last_error", null)
+            if (lastError != null) {
+                tvStatus.text = lastError
+                tvStatus.setTextColor(android.graphics.Color.RED)
+            } else {
+                tvStatus.text = "Linked to $deviceName"
+                tvStatus.setTextColor(android.graphics.Color.BLACK)
+            }
             btnPair.visibility = View.GONE
             btnUnlink.visibility = View.VISIBLE
             btnSendFile.visibility = View.VISIBLE
