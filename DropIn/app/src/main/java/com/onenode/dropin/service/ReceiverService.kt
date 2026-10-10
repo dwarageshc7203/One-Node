@@ -205,6 +205,8 @@ class ReceiverService : Service() {
 
         } catch (e: Exception) {
             e.printStackTrace()
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(3, buildNotification("Fatal error: ${e.message}"))
         }
     }
 
